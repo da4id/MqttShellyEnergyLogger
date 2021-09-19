@@ -106,9 +106,9 @@ class ShellyMqttMsgHandler(mqtt.Client):
             device = Device(d["id"], d["model"], d["mac"], d["ip"], d["id"])
             session.add(device)
             self._subscribe_device(device)
+            self._create_new_series(device)
         else:
             device.ip = d["ip"]
-        self._create_new_series(device)
 
         session.commit()
 
