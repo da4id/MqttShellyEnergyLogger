@@ -14,10 +14,6 @@ engine = DbConnection.create_shelly_engine()
 # create tables
 Base.metadata.create_all(engine)
 
-# create a Session
-Session = sessionmaker(bind=engine)
-session = Session()
-
 
 class ShellyMqttMsgHandler(mqtt.Client):
 
@@ -37,48 +33,57 @@ class ShellyMqttMsgHandler(mqtt.Client):
 
     def on_message(self, mqttc, obj, msg):
         try:
-            self.logger.info(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
-            payload = msg.payload.decode("utf-8")
-            if msg.topic == AnnounceTopic:
-                self._process_announce(payload)
-            elif msg.topic.find("shellies/") != -1 and msg.topic.find("/relay/") != -1:
-                deviceId = msg.topic[len("shellies/"):msg.topic.find("/relay/")]
-                device = session.query(Device).filter_by(id=deviceId).first()
-                if device is None:
-                    self.logger.warning("nicht registriertes Device: " + deviceId)
-                    return
-                idx = msg.topic.find("/relay/") + len("/relay/")
-                channelId = int(msg.topic[idx:idx + 1])
-                series = session.query(Series).filter_by(dbIdDevice=device.dbid).order_by(
-                    Series.startTimestamp.desc()).first()
-                self.logger.debug("device " + str(device.dbid))
-                self.logger.debug("channelId " + str(channelId))
-                if series is None:
-                    self._create_new_series(device)
-                    session.commit()
-                self.logger.debug("series " + str(series.dbid))
+            # create a Session
+            Session = sessionmaker(bind=engine)
+            session = Session()
+            try:
+                self.logger.info(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+                payload = msg.payload.decode("utf-8")
+                if msg.topic == AnnounceTopic:
+                    self._process_announce(payload, session)
+                elif msg.topic.find("shellies/") != -1 and msg.topic.find("/relay/") != -1:
+                    deviceId = msg.topic[len("shellies/"):msg.topic.find("/relay/")]
+                    device = session.query(Device).filter_by(id=deviceId).first()
+                    if device is None:
+                        self.logger.warning("nicht registriertes Device: " + deviceId)
+                        return
+                    idx = msg.topic.find("/relay/") + len("/relay/")
+                    channelId = int(msg.topic[idx:idx + 1])
+                    series = session.query(Series).filter_by(dbIdDevice=device.dbid).order_by(
+                        Series.startTimestamp.desc()).first()
+                    self.logger.debug("device " + str(device.dbid))
+                    self.logger.debug("channelId " + str(channelId))
+                    if series is None:
+                        self._create_new_series(device, session)
+                        session.commit()
+                    self.logger.debug("series " + str(series.dbid))
 
-                channel = session.query(Channel).filter_by(series=series).filter_by(channelId=channelId).first()
+                    channel = session.query(Channel).filter_by(series=series).filter_by(channelId=channelId).first()
 
-                if channel is None:
-                    channel = Channel(series, channelId, 0)
-                    session.add(channel)
-                    session.commit()
-                self.logger.debug("Channel " + str(channel.channelId))
+                    if channel is None:
+                        channel = Channel(series, channelId, 0)
+                        session.add(channel)
+                        session.commit()
+                    self.logger.debug("Channel " + str(channel.channelId))
 
-                if msg.topic.find("energy") > 0:
-                    self._process_energy(payload, device, series, channel)
-                elif msg.topic.find("power") > 0:
-                    self._process_power(payload, device, series, channel)
+                    if msg.topic.find("energy") > 0:
+                        self._process_energy(payload, device, series, channel, session)
+                    elif msg.topic.find("power") > 0:
+                        self._process_power(payload, device, series, channel, session)
+            except:
+                session.rollback()
+                raise
+            finally:
+                session.close()
         except Exception as e:
             self.logger.warning(e)
 
-    def _process_energy(self, payload, device, series, channel):
+    def _process_energy(self, payload, device, series, channel, session):
         energy = int(payload) / (60.0 * 1000)
         if round(energy, 3) < round(channel.energy, 3):
             self.logger.info("Energy is Lower than db Record -> Create new Series")
             self.logger.debug(str(energy) + " " + str(channel.energy))
-            self._create_new_series(device)
+            self._create_new_series(device, session)
             session.commit()
             channel = session.query(Channel).filter_by(series=series).filter_by(channelId=channel.channelId).first()
         if channel is not None:
@@ -89,7 +94,7 @@ class ShellyMqttMsgHandler(mqtt.Client):
         self.logger.debug("process_energy " + payload)
         pass
 
-    def _process_power(self, payload, device, series, channel):
+    def _process_power(self, payload, device, series, channel, session):
         if channel is not None:
             measurement = Measurement(float(payload), channel)
             session.add(measurement)
@@ -99,20 +104,20 @@ class ShellyMqttMsgHandler(mqtt.Client):
         self.logger.debug("process_power " + payload)
         pass
 
-    def _process_announce(self, payload):
+    def _process_announce(self, payload, session):
         d = json.loads(payload)
         device = session.query(Device).filter_by(id=d["id"]).first()
         if device is None:
             device = Device(d["id"], d["model"], d["mac"], d["ip"], d["id"])
             session.add(device)
             self._subscribe_device(device)
-            self._create_new_series(device)
+            self._create_new_series(device, session)
         else:
             device.ip = d["ip"]
 
         session.commit()
 
-    def _create_new_series(self, device):
+    def _create_new_series(self, device, session):
         self.logger.info("Create new series for Device " + device.id)
         series = Series(device)
         session.add(series)
@@ -145,5 +150,10 @@ class ShellyMqttMsgHandler(mqtt.Client):
         self.loop_start()
         self.subscribe(AnnounceTopic, 0)
 
+        # create a Session
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
         for device in session.query(Device):
             self._subscribe_device(device)
+        session.close()
