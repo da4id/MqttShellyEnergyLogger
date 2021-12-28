@@ -79,10 +79,10 @@ class ShellyMqttMsgHandler(mqtt.Client):
             self.logger.warning(e)
 
     def _process_energy(self, payload, device, series, channel, session):
-        energy = int(payload) / (60.0 * 1000)
-        if round(energy, 3) < round(channel.energy, 3):
+        energy = round(int(payload) / (60.0 * 1000), 3)
+        if int(energy * 1000) < int(channel.energy * 1000):
             self.logger.info("Energy is Lower than db Record -> Create new Series")
-            self.logger.debug(str(energy) + " " + str(channel.energy))
+            self.logger.info(str(energy) + " " + str(channel.energy))
             series = self._create_new_series(device, session)
             session.commit()
             channel = session.query(Channel).filter_by(series=series).filter_by(channelId=channel.channelId).first()
