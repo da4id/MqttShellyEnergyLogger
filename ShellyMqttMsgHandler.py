@@ -70,11 +70,12 @@ class ShellyMqttMsgHandler(mqtt.Client):
                         self._process_energy(payload, device, series, channel, session)
                     elif msg.topic.find("power") > 0:
                         self._process_power(payload, device, series, channel, session)
-            except:
-                session.rollback()
-                raise
-            finally:
                 session.close()
+            except Exception as e:
+                session.rollback()
+                session.close()
+                self.logger.warning(e)
+                raise e
         except Exception as e:
             self.logger.warning(e)
 
