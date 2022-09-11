@@ -147,7 +147,9 @@ class ShellyMqttMsgHandler(mqtt.Client):
 
         data = json.loads(payload.decode('utf-8'))
 
-        self._process_energy(data["aenergy"]["total"] / 1000, device, series, channel, session)
+        energy = round(data["aenergy"]["total"]/1000, 3)
+
+        self._process_energy(energy, device, series, channel, session)
         self._process_power(data["apower"], series, channel, session)
 
     def _create_new_series(self, device, session):
