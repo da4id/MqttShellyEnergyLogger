@@ -7,7 +7,7 @@ import sys
 import signal
 from ShellyMqttMsgHandler import ShellyMqttMsgHandler
 
-Server = "192.168.12.16"
+Server = "mqtt.zingg.server"
 Port = 1883
 User = "david"
 Password = "j4BURx801Avq9UuUXpoV"
