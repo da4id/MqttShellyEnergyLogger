@@ -183,6 +183,10 @@ class ShellyMqttMsgHandler(mqtt.Client):
         elif device.model == "shellyplus1pm":
             self.logger.info("Subscribe Shelly Plus 1PM: " + device.id)
             self.subscribe(device.id + "/status/switch:0", 0)
+        elif device.model == "shellyplus2pm":
+            self.logger.info("Subscribe Shelly Plus 2PM: " + device.id)
+            self.subscribe(device.id + "/status/switch:0", 0)
+            self.subscribe(device.id + "/status/switch:1", 0)
 
     def run(self, username, password, server, port):
         self.logger.info("Connect to MqTT Broker")
