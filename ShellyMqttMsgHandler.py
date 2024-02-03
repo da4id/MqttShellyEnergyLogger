@@ -164,9 +164,14 @@ class ShellyMqttMsgHandler(mqtt.Client):
             channel1 = Channel(series, 1, 0)
             session.add(channel0)
             session.add(channel1)
-        elif device.model == "shellyplus1pm":
+        elif device.model == "shellyplus1pm" or device.model == "shellyplus1pmmini":
             channel = Channel(series, 0, 0)
             session.add(channel)
+        elif device.model == "shellyplus2pm":
+            channel0 = Channel(series, 0, 0)
+            channel1 = Channel(series, 1, 0)
+            session.add(channel0)
+            session.add(channel1)
         return series
 
     def _subscribe_device(self, device):
@@ -180,7 +185,7 @@ class ShellyMqttMsgHandler(mqtt.Client):
             self.subscribe("shellies/" + device.id + "/relay/1/power", 0)
             self.subscribe("shellies/" + device.id + "/relay/0/energy", 0)
             self.subscribe("shellies/" + device.id + "/relay/1/energy", 0)
-        elif device.model == "shellyplus1pm":
+        elif device.model == "shellyplus1pm" or device.model == "shellyplus1pmmini":
             self.logger.info("Subscribe Shelly Plus 1PM: " + device.id)
             self.subscribe(device.id + "/status/switch:0", 0)
         elif device.model == "shellyplus2pm":
