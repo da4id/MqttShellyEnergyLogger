@@ -6,11 +6,8 @@ from datetime import datetime
 import sys
 import signal
 from ShellyMqttMsgHandler import ShellyMqttMsgHandler
+import paho.mqtt.client as mqtt
 
-Server = "mqtt.zingg.server"
-Port = 1883
-User = "david"
-Password = "j4BURx801Avq9UuUXpoV"
 ID = "ShellyAdapter" + str(datetime.now())
 
 def setup_logging(
@@ -44,7 +41,12 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_term)
     setup_logging()
 
-    shellyMqttMsgHandler = ShellyMqttMsgHandler(ID, clean_session=True)
+    Server = os.environ.get('MQTT_SERVER')
+    Port = int(os.environ.get('MQTT_PORT'))
+    User = os.environ.get('MQTT_USER')
+    Password = os.environ.get('MQTT_PASSWORD')
+
+    shellyMqttMsgHandler = ShellyMqttMsgHandler(mqtt.CallbackAPIVersion.VERSION2, ID, clean_session=True)
     shellyMqttMsgHandler.run(User, Password, Server, Port)
 
 

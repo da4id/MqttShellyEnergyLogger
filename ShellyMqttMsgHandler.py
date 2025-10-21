@@ -17,19 +17,20 @@ Base.metadata.create_all(engine)
 
 class ShellyMqttMsgHandler(mqtt.Client):
 
-    def __init__(self, client_id="", clean_session=True, userdata=None, protocol=mqtt.MQTTv311, transport="tcp"):
-        super().__init__(client_id, clean_session, userdata, protocol, transport)
+    def __init__(self, callback_api_version=mqtt.CallbackAPIVersion.VERSION2, client_id="", clean_session=True,
+                 userdata=None, protocol=mqtt.MQTTv311, transport="tcp",reconnect_on_failure=True, manual_ack=False):
+        super().__init__(callback_api_version, client_id, clean_session, userdata, protocol, transport,reconnect_on_failure, manual_ack)
         self.logger = logging.getLogger(__name__)
         self.enable_logger(self.logger)
 
-    def on_connect(self, mqttc, obj, flags, rc):
-        self.logger.debug("rc: " + str(rc))
+    def on_connect(self, client, userdata, connect_flags, reason_code, properties):
+        self.logger.debug("rc: " + str(reason_code))
 
-    def on_publish(self, mqttc, obj, mid):
+    def on_publish(self, client, userdata, mid, reason_code, properties):
         self.logger.debug("mid: " + str(mid))
 
-    def on_subscribe(self, mqttc, obj, mid, granted_qos):
-        self.logger.info("Subscribed: " + str(mid) + " " + str(granted_qos))
+    def on_subscribe(self, client, userdata, mid, reason_code_list, properties):
+        self.logger.info("Subscribed: " + str(mid))
 
     def on_message(self, mqttc, obj, msg):
         try:
@@ -147,7 +148,7 @@ class ShellyMqttMsgHandler(mqtt.Client):
 
         data = json.loads(payload.decode('utf-8'))
 
-        energy = round(data["aenergy"]["total"]/1000, 3)
+        energy = round(data["aenergy"]["total"] / 1000, 3)
 
         self._process_energy(energy, device, series, channel, session)
         self._process_power(data["apower"], series, channel, session)
